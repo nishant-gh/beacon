@@ -1,10 +1,28 @@
-# ai-readiness-check
+# 🔦 Beacon
 
-A Lighthouse-style CLI tool that evaluates how well your codebase is set up for AI coding agents (Claude, Cursor, Copilot, etc).
+Shine a light on your codebase's AI readiness.
+
+Beacon is a Lighthouse-style CLI tool that evaluates how well your project is set up for AI coding agents (Claude, Cursor, Copilot, etc). It scans your codebase, runs parallel AI-powered analysis across 8 dimensions, and produces an actionable readiness score.
 
 ## What It Does
 
-Scans your project and scores it across 8 dimensions of AI readiness:
+```
+🔦 Beacon — AI Readiness Report
+════════════════════════════════════════════════════════════
+
+  Overall Score:  62/100  Grade: C
+
+  Documentation & Context    ██████░░░░  6/10
+  Rules & Policy Files       ██░░░░░░░░  2/10
+  Type Safety & Schemas      ████████░░  8/10
+  Test Infrastructure        ███████░░░  7/10
+  Modularity & Boundaries    ██████░░░░  6/10
+  CI/CD & Automated Checks   ████████░░  8/10
+  Consistency & Conventions  █████░░░░░  5/10
+  Security Hygiene           ████████░░  8/10
+```
+
+### Scoring Dimensions
 
 | Dimension | What It Measures |
 |---|---|
@@ -17,31 +35,31 @@ Scans your project and scores it across 8 dimensions of AI readiness:
 | **Consistency & Conventions** | Naming conventions, code patterns, formatting |
 | **Security Hygiene** | Secret management, dependency security, input validation |
 
-Each dimension is analyzed by a specialized AI agent in parallel, producing a score out of 10 plus specific findings and suggestions.
+Each dimension is analyzed by a specialized AI agent in parallel, producing a score out of 10 plus specific findings and actionable suggestions.
 
 ## Install
 
 ```bash
-npm install -g ai-readiness-check
+npm install -g beacon-ai
 ```
 
 ## Usage
 
 ```bash
 # Analyze current directory
-ai-readiness-check
+beacon
 
 # Analyze a specific project
-ai-readiness-check ./my-project
+beacon ./my-project
 
 # Output raw JSON
-ai-readiness-check --json
+beacon --json
 
 # Save report to file
-ai-readiness-check -o report.json
+beacon -o report.json
 
 # Analyze specific dimensions only
-ai-readiness-check -d documentation,type-safety,test-infrastructure
+beacon -d documentation,type-safety,test-infrastructure
 ```
 
 Requires an Anthropic API key:
@@ -83,7 +101,7 @@ Synthesis Phase (deterministic)
 ## Programmatic API
 
 ```typescript
-import { analyzeProject } from "ai-readiness-check";
+import { analyzeProject } from "beacon-ai";
 
 const report = await analyzeProject({
   projectPath: "./my-project",
@@ -97,8 +115,8 @@ console.log(report.grade);        // A, B, C, D, F
 ## Development
 
 ```bash
-git clone https://github.com/your-org/ai-readiness-check
-cd ai-readiness-check
+git clone https://github.com/your-org/beacon
+cd beacon
 npm install
 npm run dev -- ./path-to-project
 ```

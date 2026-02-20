@@ -12,7 +12,7 @@ export function renderReport(report: FinalReport): string {
   lines.push("");
   lines.push(chalk.bold("═".repeat(width)));
   lines.push(
-    chalk.bold.white("  AI Readiness Report")
+    chalk.bold.white("  🔦 Beacon — AI Readiness Report")
   );
   lines.push(chalk.bold("═".repeat(width)));
   lines.push("");

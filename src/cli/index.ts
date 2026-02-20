@@ -13,9 +13,9 @@ import { renderReport } from "./render.js";
 const program = new Command();
 
 program
-  .name("ai-readiness-check")
+  .name("beacon")
   .description(
-    "Lighthouse-style AI readiness analyzer for codebases. Evaluates how well your project is set up for AI coding agents."
+    "Shine a light on your codebase's AI readiness. Evaluates how well your project is set up for AI coding agents."
   )
   .version("0.1.0")
   .argument("[path]", "Path to the project to analyze", ".")
@@ -76,7 +76,7 @@ program
 
     console.log("");
     console.log(
-      chalk.bold("🔍 AI Readiness Check")
+      chalk.bold("🔦 Beacon")
     );
     console.log(chalk.dim(`   Analyzing: ${resolvedPath}`));
     console.log("");
