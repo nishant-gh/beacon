@@ -1,6 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { discoverProject } from "../discovery/discover.js";
-import { routeFilesForDimension } from "../discovery/file-router.js";
 import { synthesizeReport } from "../synthesis/synthesize.js";
 import { BaseWorker } from "../workers/base-worker.js";
 import { WORKER_CONFIGS } from "../workers/worker-configs.js";
@@ -25,8 +23,6 @@ export interface AnalysisCallbacks {
 export interface AnalysisOptions {
   /** Absolute or relative path to the project */
   projectPath: string;
-  /** Anthropic API key */
-  apiKey: string;
   /** Specific dimensions to analyze (defaults to all) */
   dimensions?: Dimension[];
   /** Progress callbacks */
@@ -44,7 +40,7 @@ export async function analyzeProject(
   options: AnalysisOptions
 ): Promise<FinalReport> {
   const startTime = Date.now();
-  const { projectPath, apiKey, callbacks } = options;
+  const { projectPath, callbacks } = options;
   const dimensions = options.dimensions ?? ALL_DIMENSIONS;
 
   // ── 1. Discovery Phase ──────────────────────────────
@@ -53,28 +49,17 @@ export async function analyzeProject(
   callbacks?.onDiscoveryComplete?.(manifest);
 
   // ── 2. Parallel Worker Phase ────────────────────────
-  const client = new Anthropic({ apiKey });
-
   const workerPromises = dimensions.map(async (dimension) => {
     callbacks?.onWorkerStart?.(dimension);
 
     try {
-      // Get the worker config for this dimension
       const config = WORKER_CONFIGS.find((w) => w.dimension === dimension);
       if (!config) {
         throw new Error(`No worker config for dimension: ${dimension}`);
       }
 
-      // Route relevant files to this worker
-      const fileContents = await routeFilesForDimension(manifest, dimension);
-
-      // Create and run the worker
-      const worker = new BaseWorker(client, config);
-      const output = await worker.analyze({
-        manifest,
-        dimension,
-        fileContents,
-      });
+      const worker = new BaseWorker(config);
+      const output = await worker.analyze({ manifest, dimension });
 
       callbacks?.onWorkerComplete?.(dimension, output);
       return output;
@@ -83,7 +68,6 @@ export async function analyzeProject(
         error instanceof Error ? error : new Error(String(error));
       callbacks?.onWorkerError?.(dimension, err);
 
-      // Return a failure output rather than crashing the whole analysis
       const failureOutput: WorkerOutput = {
         dimension,
         score: 0,

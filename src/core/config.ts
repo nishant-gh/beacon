@@ -123,9 +123,3 @@ export const MAX_FILE_SIZE_BYTES = 50_000; // ~50KB
 
 /** Maximum number of files to send to a single worker */
 export const MAX_FILES_PER_WORKER = 60;
-
-/** Default model for LLM-based workers */
-export const DEFAULT_MODEL = "claude-sonnet-4-20250514";
-
-/** Maximum tokens for worker LLM calls */
-export const DEFAULT_MAX_TOKENS = 4096;

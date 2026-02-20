@@ -1,6 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "../core/config.js";
-import { WorkerOutput, type Dimension, type WorkerInput } from "../core/schemas.js";
+import { query } from "@anthropic-ai/claude-agent-sdk";
+import { WORKER_OUTPUT_JSON_SCHEMA, WorkerOutput, type Dimension, type WorkerInput } from "../core/schemas.js";
 
 export interface WorkerConfig {
   dimension: Dimension;
@@ -8,19 +7,13 @@ export interface WorkerConfig {
 }
 
 /**
- * BaseWorker handles the common LLM interaction pattern:
- *   1. Builds a prompt from WorkerInput + dimension-specific system prompt
- *   2. Calls the LLM
- *   3. Parses and validates the structured output
- *
- * Concrete workers only need to provide a dimension and system prompt.
+ * BaseWorker runs a Claude Code subprocess via the Agent SDK.
+ * Claude explores the project using Read/Glob/Grep tools and returns structured output.
  */
 export class BaseWorker {
-  private client: Anthropic;
   private config: WorkerConfig;
 
-  constructor(client: Anthropic, config: WorkerConfig) {
-    this.client = client;
+  constructor(config: WorkerConfig) {
     this.config = config;
   }
 
@@ -29,39 +22,31 @@ export class BaseWorker {
   }
 
   async analyze(input: WorkerInput): Promise<WorkerOutput> {
-    const userMessage = this.buildUserMessage(input);
-
-    const response = await this.client.messages.create({
-      model: DEFAULT_MODEL,
-      max_tokens: DEFAULT_MAX_TOKENS,
-      system: this.config.systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
+    const messages = query({
+      prompt: this.buildUserMessage(input),
+      options: {
+        cwd: input.manifest.rootDir,
+        systemPrompt: this.config.systemPrompt,
+        allowedTools: ["Read", "Glob", "Grep"],
+        permissionMode: "bypassPermissions",
+        outputFormat: { type: "json_schema", schema: WORKER_OUTPUT_JSON_SCHEMA as Record<string, unknown> },
+      },
     });
 
-    const text = response.content
-      .filter((block) => block.type === "text")
-      .map((block) => {
-        if (block.type === "text") return block.text;
-        return "";
-      })
-      .join("");
+    for await (const msg of messages) {
+      if (msg.type === "result" && msg.subtype === "success") {
+        return WorkerOutput.parse(msg.structured_output);
+      }
+      if (msg.type === "result") {
+        const errors = (msg as { errors?: string[] }).errors;
+        throw new Error(errors?.join(", ") ?? "Worker failed");
+      }
+    }
 
-    return this.parseOutput(text);
+    throw new Error("Worker produced no result");
   }
 
   private buildUserMessage(input: WorkerInput): string {
-    const fileList = Object.keys(input.fileContents);
-    const fileSummary = fileList.length > 0
-      ? `\nFiles provided for analysis (${fileList.length} files):\n${fileList.map((f) => `  - ${f}`).join("\n")}`
-      : "\nNo files matched for this dimension.";
-
-    const fileContents = Object.entries(input.fileContents)
-      .map(
-        ([filePath, content]) =>
-          `\n--- FILE: ${filePath} ---\n${content}\n--- END FILE ---`
-      )
-      .join("\n");
-
     return `Analyze this project for AI readiness in the "${input.dimension}" dimension.
 
 ## Project Overview
@@ -75,63 +60,7 @@ export class BaseWorker {
 - Doc Files: ${input.manifest.stats.docFiles}
 - CI Files: ${input.manifest.stats.ciFiles}
 - Agent Rules Files: ${input.manifest.stats.agentRulesFiles}
-${fileSummary}
 
-## File Contents
-${fileContents || "(no file contents available)"}
-
-Respond ONLY with a JSON object matching this exact schema:
-{
-  "dimension": "${input.dimension}",
-  "score": <number 0-10>,
-  "maxScore": 10,
-  "summary": "<1-2 sentence summary of findings>",
-  "findings": [
-    {
-      "severity": "error" | "warning" | "info",
-      "message": "<what was found>",
-      "file": "<optional: file path>",
-      "line": <optional: line number>,
-      "evidence": "<optional: relevant snippet or detail>"
-    }
-  ],
-  "suggestions": [
-    {
-      "impact": "high" | "medium" | "low",
-      "effort": "trivial" | "small" | "medium" | "large",
-      "description": "<actionable suggestion>",
-      "example": "<optional: concrete example>"
-    }
-  ]
-}`;
-  }
-
-  private parseOutput(text: string): WorkerOutput {
-    // Extract JSON from response (handle markdown fences)
-    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [
-      null,
-      text,
-    ];
-    const jsonStr = (jsonMatch[1] || text).trim();
-
-    try {
-      const parsed = JSON.parse(jsonStr);
-      return WorkerOutput.parse(parsed);
-    } catch (error) {
-      // Return a fallback error output if parsing fails
-      return {
-        dimension: this.config.dimension,
-        score: 0,
-        maxScore: 10,
-        summary: `Analysis failed: unable to parse worker output. Raw: ${text.slice(0, 200)}`,
-        findings: [
-          {
-            severity: "error",
-            message: `Worker output parsing failed: ${error instanceof Error ? error.message : "unknown error"}`,
-          },
-        ],
-        suggestions: [],
-      };
-    }
+Use the Read, Glob, and Grep tools to explore the project files relevant to the "${input.dimension}" dimension, then provide your structured analysis.`;
   }
 }

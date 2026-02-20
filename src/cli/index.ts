@@ -31,17 +31,11 @@ program
     "--json",
     "Output raw JSON instead of formatted report"
   )
-  .option(
-    "-k, --api-key <key>",
-    "Anthropic API key (defaults to ANTHROPIC_API_KEY env var)"
-  )
   .action(async (projectPath: string, options) => {
-    const apiKey = options.apiKey || process.env.ANTHROPIC_API_KEY;
-
-    if (!apiKey) {
+    if (!process.env.ANTHROPIC_API_KEY && !process.env.CLAUDE_CODE_OAUTH_TOKEN) {
       console.error(
         chalk.red(
-          "\nError: Anthropic API key required. Set ANTHROPIC_API_KEY environment variable or use --api-key flag.\n"
+          "\nError: Authentication required. Set ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN environment variable.\n"
         )
       );
       process.exit(1);
@@ -88,7 +82,6 @@ program
     try {
       const report = await analyzeProject({
         projectPath: resolvedPath,
-        apiKey,
         dimensions: dimensions as Dimension[],
         callbacks: {
           onDiscoveryStart() {

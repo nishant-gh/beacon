@@ -90,12 +90,6 @@ export const WorkerInput = z.object({
 
   /** Which dimension this worker is evaluating */
   dimension: Dimension,
-
-  /**
-   * Relevant file contents, keyed by relative path.
-   * Only includes files the worker needs — not the entire codebase.
-   */
-  fileContents: z.record(z.string(), z.string()),
 });
 export type WorkerInput = z.infer<typeof WorkerInput>;
 
@@ -126,6 +120,44 @@ export const WorkerOutput = z.object({
   suggestions: z.array(Suggestion),
 });
 export type WorkerOutput = z.infer<typeof WorkerOutput>;
+
+export const WORKER_OUTPUT_JSON_SCHEMA = {
+  type: "object",
+  required: ["dimension", "score", "maxScore", "summary", "findings", "suggestions"],
+  properties: {
+    dimension: { type: "string" },
+    score: { type: "number" },
+    maxScore: { type: "number" },
+    summary: { type: "string" },
+    findings: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["severity", "message"],
+        properties: {
+          severity: { type: "string", enum: ["error", "warning", "info"] },
+          message: { type: "string" },
+          file: { type: "string" },
+          line: { type: "number" },
+          evidence: { type: "string" },
+        },
+      },
+    },
+    suggestions: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["impact", "effort", "description"],
+        properties: {
+          impact: { type: "string", enum: ["high", "medium", "low"] },
+          effort: { type: "string", enum: ["trivial", "small", "medium", "large"] },
+          description: { type: "string" },
+          example: { type: "string" },
+        },
+      },
+    },
+  },
+} as const;
 
 // ─────────────────────────────────────────────
 // Synthesis Phase: Final Report
