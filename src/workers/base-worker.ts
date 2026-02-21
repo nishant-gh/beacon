@@ -1,6 +1,10 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { WORKER_OUTPUT_JSON_SCHEMA, WorkerOutput, type Dimension, type WorkerInput } from "../core/schemas.js";
 
+export interface WorkerCallbacks {
+  onToolCall?: (tool: string, input: unknown) => void;
+}
+
 export interface WorkerConfig {
   dimension: Dimension;
   systemPrompt: string;
@@ -21,7 +25,7 @@ export class BaseWorker {
     return this.config.dimension;
   }
 
-  async analyze(input: WorkerInput): Promise<WorkerOutput> {
+  async analyze(input: WorkerInput, callbacks?: WorkerCallbacks): Promise<WorkerOutput> {
     const messages = query({
       prompt: this.buildUserMessage(input),
       options: {
@@ -34,9 +38,26 @@ export class BaseWorker {
     });
 
     for await (const msg of messages) {
-      if (msg.type === "result" && msg.subtype === "success") {
-        return WorkerOutput.parse(msg.structured_output);
+      if (msg.type === "assistant" && callbacks?.onToolCall) {
+        for (const block of msg.message.content) {
+          if (block.type === "tool_use") {
+            callbacks.onToolCall(block.name, block.input);
+          }
+        }
       }
+
+      if (msg.type === "result" && msg.subtype === "success") {
+        const output = WorkerOutput.parse(msg.structured_output);
+        return {
+          ...output,
+          meta: {
+            durationMs: msg.duration_ms,
+            numTurns: msg.num_turns,
+            costUsd: msg.total_cost_usd,
+          },
+        };
+      }
+
       if (msg.type === "result") {
         const errors = (msg as { errors?: string[] }).errors;
         throw new Error(errors?.join(", ") ?? "Worker failed");

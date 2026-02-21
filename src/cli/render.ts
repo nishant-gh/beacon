@@ -101,7 +101,8 @@ export function renderReport(report: FinalReport): string {
   lines.push(chalk.bold("═".repeat(width)));
   lines.push(
     chalk.dim(
-      `  Analyzed ${report.meta.totalFilesAnalyzed} files in ${(report.meta.analysisDurationMs / 1000).toFixed(1)}s`
+      `  Analyzed ${report.meta.totalFilesAnalyzed} files in ${(report.meta.analysisDurationMs / 1000).toFixed(1)}s` +
+      (report.meta.totalCostUsd > 0 ? `  ·  cost: $${report.meta.totalCostUsd.toFixed(4)}` : "")
     )
   );
   lines.push(

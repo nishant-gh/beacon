@@ -78,6 +78,13 @@ program
     // Progress tracking
     const spinner = ora({ text: "Discovering project structure...", color: "cyan" }).start();
     const workerStatus = new Map<string, string>();
+    const workerActivity = new Map<string, string>();
+
+    const FRAMES = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"];
+    const frameRef = { value: 0 };
+    const lastLineCount = { value: 0 };
+    let renderInterval: NodeJS.Timeout | undefined;
+    let activeDimensions: Dimension[] = [];
 
     try {
       const report = await analyzeProject({
@@ -91,23 +98,29 @@ program
             spinner.succeed(
               `Discovered ${manifest.stats.totalFiles} files (${manifest.languages.join(", ") || "unknown language"})`
             );
+            activeDimensions = (dimensions ?? ALL_DIMENSIONS) as Dimension[];
+            lastLineCount.value = 0;
+            renderInterval = setInterval(() => {
+              renderMultiLine(activeDimensions, workerStatus, workerActivity, frameRef, lastLineCount, FRAMES);
+            }, 150);
           },
           onWorkerStart(dimension) {
             workerStatus.set(dimension, "running");
-            updateWorkerSpinner(spinner, workerStatus);
+          },
+          onWorkerToolCall(dimension, tool, input) {
+            workerActivity.set(dimension, formatToolCall(tool, input));
           },
           onWorkerComplete(dimension, output) {
-            workerStatus.set(
-              dimension,
-              `done (${output.score}/10)`
-            );
-            updateWorkerSpinner(spinner, workerStatus);
+            workerStatus.set(dimension, `done (${output.score}/10)`);
+            workerActivity.delete(dimension);
           },
           onWorkerError(dimension, error) {
             workerStatus.set(dimension, `failed: ${error.message}`);
-            updateWorkerSpinner(spinner, workerStatus);
+            workerActivity.delete(dimension);
           },
           onSynthesisStart() {
+            clearInterval(renderInterval);
+            renderMultiLine(activeDimensions, workerStatus, workerActivity, frameRef, lastLineCount, FRAMES);
             spinner.start("Synthesizing report...");
           },
           onSynthesisComplete() {
@@ -135,6 +148,7 @@ program
         process.exit(1);
       }
     } catch (error) {
+      clearInterval(renderInterval);
       spinner.fail("Analysis failed");
       console.error(
         chalk.red(
@@ -145,26 +159,59 @@ program
     }
   });
 
-function updateWorkerSpinner(
-  spinner: ReturnType<typeof ora>,
-  status: Map<string, string>
+function renderMultiLine(
+  activeDimensions: Dimension[],
+  status: Map<string, string>,
+  activity: Map<string, string>,
+  frameRef: { value: number },
+  lastLineCount: { value: number },
+  frames: string[]
 ) {
-  const running = [...status.entries()]
-    .filter(([, s]) => s === "running")
-    .map(([d]) => DIMENSION_LABELS[d as Dimension]);
-
-  const completed = [...status.entries()].filter(
-    ([, s]) => s !== "running"
-  ).length;
-
-  const total = status.size;
-
-  if (running.length > 0) {
-    spinner.text = `Analyzing [${completed}/${total}]: ${running.join(", ")}`;
-    if (!spinner.isSpinning) spinner.start();
-  } else {
-    spinner.succeed(`All ${total} dimensions analyzed`);
+  // Move cursor up by however many lines the previous render wrote.
+  // On the first call lastLineCount is 0 so we just append below the spinner.
+  if (lastLineCount.value > 0) {
+    process.stdout.write(`\x1B[${lastLineCount.value}A`);
   }
+
+  const lines: string[] = [];
+  for (const dim of activeDimensions) {
+    const s = status.get(dim);
+    const act = activity.get(dim) ?? "—";
+    const label = DIMENSION_LABELS[dim].padEnd(30);
+
+    if (!s) {
+      lines.push(`  ${chalk.dim("·")} ${chalk.dim(label)} ${chalk.dim("—")}`);
+    } else if (s === "running") {
+      const frame = chalk.cyan(frames[frameRef.value % frames.length]);
+      lines.push(`  ${frame} ${label} ${chalk.dim(act)}`);
+    } else if (s.startsWith("done")) {
+      lines.push(`  ${chalk.green("✓")} ${label} ${chalk.dim(s)}`);
+    } else {
+      lines.push(`  ${chalk.red("✗")} ${label} ${chalk.red(s)}`);
+    }
+  }
+
+  const completed = [...status.values()].filter(s => s !== "running").length;
+  lines.push("");
+  lines.push(chalk.dim(`  Analyzing: ${completed}/${activeDimensions.length} complete`));
+
+  process.stdout.write(lines.map(l => `\x1B[2K${l}`).join("\n") + "\n");
+  lastLineCount.value = lines.length;
+  frameRef.value++;
+}
+
+function formatToolCall(tool: string, input: unknown): string {
+  if (tool === "Glob" && input && typeof input === "object" && "pattern" in input) {
+    return `Glob(${(input as { pattern: string }).pattern})`;
+  }
+  if (tool === "Grep" && input && typeof input === "object" && "pattern" in input) {
+    return `Grep(${(input as { pattern: string }).pattern})`;
+  }
+  if (tool === "Read" && input && typeof input === "object" && "file_path" in input) {
+    const p = (input as { file_path: string }).file_path;
+    return `Read(${p.split("/").slice(-2).join("/")})`;
+  }
+  return tool;
 }
 
 program.parse();

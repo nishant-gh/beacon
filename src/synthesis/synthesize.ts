@@ -44,6 +44,8 @@ export function synthesizeReport(
     manifest
   );
 
+  const totalCostUsd = workerOutputs.reduce((sum, o) => sum + (o.meta?.costUsd ?? 0), 0);
+
   return {
     overallScore,
     grade,
@@ -56,6 +58,7 @@ export function synthesizeReport(
       languages: manifest.languages,
       totalFilesAnalyzed: manifest.stats.totalFiles,
       analysisDurationMs: durationMs,
+      totalCostUsd,
     },
   };
 }

@@ -14,6 +14,7 @@ export interface AnalysisCallbacks {
   onDiscoveryStart?: () => void;
   onDiscoveryComplete?: (manifest: ProjectManifest) => void;
   onWorkerStart?: (dimension: Dimension) => void;
+  onWorkerToolCall?: (dimension: Dimension, tool: string, input: unknown) => void;
   onWorkerComplete?: (dimension: Dimension, output: WorkerOutput) => void;
   onWorkerError?: (dimension: Dimension, error: Error) => void;
   onSynthesisStart?: () => void;
@@ -59,7 +60,9 @@ export async function analyzeProject(
       }
 
       const worker = new BaseWorker(config);
-      const output = await worker.analyze({ manifest, dimension });
+      const output = await worker.analyze({ manifest, dimension }, {
+        onToolCall: (tool, input) => callbacks?.onWorkerToolCall?.(dimension, tool, input),
+      });
 
       callbacks?.onWorkerComplete?.(dimension, output);
       return output;

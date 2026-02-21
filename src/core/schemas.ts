@@ -111,6 +111,13 @@ export const Suggestion = z.object({
 });
 export type Suggestion = z.infer<typeof Suggestion>;
 
+export const WorkerMeta = z.object({
+  durationMs: z.number(),
+  numTurns: z.number(),
+  costUsd: z.number(),
+});
+export type WorkerMeta = z.infer<typeof WorkerMeta>;
+
 export const WorkerOutput = z.object({
   dimension: Dimension,
   score: z.number().min(0).max(10),
@@ -118,6 +125,7 @@ export const WorkerOutput = z.object({
   summary: z.string(),
   findings: z.array(Finding),
   suggestions: z.array(Suggestion),
+  meta: WorkerMeta.optional(),
 });
 export type WorkerOutput = z.infer<typeof WorkerOutput>;
 
@@ -206,6 +214,7 @@ export const FinalReport = z.object({
     languages: z.array(z.string()),
     totalFilesAnalyzed: z.number(),
     analysisDurationMs: z.number(),
+    totalCostUsd: z.number(),
   }),
 });
 export type FinalReport = z.infer<typeof FinalReport>;
