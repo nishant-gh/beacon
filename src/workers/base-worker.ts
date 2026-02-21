@@ -31,9 +31,13 @@ export class BaseWorker {
       options: {
         cwd: input.manifest.rootDir,
         systemPrompt: this.config.systemPrompt,
-        allowedTools: ["Read", "Glob", "Grep"],
+        allowedTools: ["Read", "Glob", "Grep", "Bash"],
         permissionMode: "bypassPermissions",
         outputFormat: { type: "json_schema", schema: WORKER_OUTPUT_JSON_SCHEMA as Record<string, unknown> },
+        sandbox: {
+          enabled: true,
+          autoAllowBashIfSandboxed: true,
+        },
       },
     });
 
@@ -54,6 +58,9 @@ export class BaseWorker {
             durationMs: msg.duration_ms,
             numTurns: msg.num_turns,
             costUsd: msg.total_cost_usd,
+            inputTokens: msg.usage.input_tokens,
+            outputTokens: msg.usage.output_tokens,
+            cacheReadTokens: msg.usage.cache_read_input_tokens ?? 0,
           },
         };
       }
@@ -82,6 +89,6 @@ export class BaseWorker {
 - CI Files: ${input.manifest.stats.ciFiles}
 - Agent Rules Files: ${input.manifest.stats.agentRulesFiles}
 
-Use the Read, Glob, and Grep tools to explore the project files relevant to the "${input.dimension}" dimension, then provide your structured analysis.`;
+Use the Read, Glob, Grep, and Bash tools to explore the project files relevant to the "${input.dimension}" dimension, then provide your structured analysis.`;
   }
 }

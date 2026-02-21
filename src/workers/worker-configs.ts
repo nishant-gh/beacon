@@ -19,7 +19,7 @@ Score 0-10 based on:
 - API documentation: Are APIs documented with examples? (0-2 pts)
 
 Be specific in findings. Reference actual files and content. Provide actionable suggestions with concrete examples.
-Use the Read, Glob, and Grep tools to explore the project. Then respond with your structured analysis.`,
+Use the Read, Glob, Grep, and Bash tools to explore the project. Prefer Read/Glob/Grep for file access; use Bash for counting, git history, or operations that are faster as shell commands. Do not attempt any other tools. Then respond with your structured analysis.`,
   },
   {
     dimension: "rules-and-policies",
@@ -35,7 +35,7 @@ Score 0-10 based on:
 - Dependency policies: Are there rules about when/how to add dependencies? (0-2 pts)
 
 Be specific. Reference actual files found (or missing). Give concrete examples of what rules files should contain.
-Use the Read, Glob, and Grep tools to explore the project. Then respond with your structured analysis.`,
+Use the Read, Glob, Grep, and Bash tools to explore the project. Prefer Read/Glob/Grep for file access; use Bash for counting, git history, or operations that are faster as shell commands. Do not attempt any other tools. Then respond with your structured analysis.`,
   },
   {
     dimension: "type-safety",
@@ -51,7 +51,7 @@ Score 0-10 based on:
 - Validation schemas (Zod, Joi, Pydantic, etc.) for runtime type safety (0-1 pt)
 
 Be specific. Count occurrences of 'any' if TypeScript. Check for strict mode in tsconfig. Reference actual code patterns.
-Use the Read, Glob, and Grep tools to explore the project. Then respond with your structured analysis.`,
+Use the Read, Glob, Grep, and Bash tools to explore the project. Prefer Read/Glob/Grep for file access; use Bash for counting, git history, or operations that are faster as shell commands. Do not attempt any other tools. Then respond with your structured analysis.`,
   },
   {
     dimension: "test-infrastructure",
@@ -68,7 +68,7 @@ Score 0-10 based on:
 - Test patterns: Are there property-based tests, snapshot tests, or contract tests? (0-2 pts)
 
 Be specific. Calculate the test-to-source ratio. Check for coverage config. Reference specific test files and patterns.
-Use the Read, Glob, and Grep tools to explore the project. Then respond with your structured analysis.`,
+Use the Read, Glob, Grep, and Bash tools to explore the project. Prefer Read/Glob/Grep for file access; use Bash for counting, git history, or operations that are faster as shell commands. Do not attempt any other tools. Then respond with your structured analysis.`,
   },
   {
     dimension: "modularity",
@@ -84,7 +84,7 @@ Score 0-10 based on:
 - File size distribution: Are files reasonably sized, or are there god-files? (0-2 pts)
 
 Be specific. Identify the largest files. Check for barrel exports (index.ts files). Look for circular import patterns.
-Use the Read, Glob, and Grep tools to explore the project. Then respond with your structured analysis.`,
+Use the Read, Glob, Grep, and Bash tools to explore the project. Prefer Read/Glob/Grep for file access; use Bash for counting, git history, or operations that are faster as shell commands. Do not attempt any other tools. Then respond with your structured analysis.`,
   },
   {
     dimension: "ci-cd",
@@ -101,7 +101,7 @@ Score 0-10 based on:
 - Build verification: Does CI verify the project builds successfully? (0-1 pt)
 
 Be specific. Reference actual CI config files. Identify which checks are present and which are missing.
-Use the Read, Glob, and Grep tools to explore the project. Then respond with your structured analysis.`,
+Use the Read, Glob, Grep, and Bash tools to explore the project. Prefer Read/Glob/Grep for file access; use Bash for counting, git history, or operations that are faster as shell commands. Do not attempt any other tools. Then respond with your structured analysis.`,
   },
   {
     dimension: "consistency",
@@ -117,7 +117,7 @@ Score 0-10 based on:
 - Formatting: Is formatting consistent (suggesting automated formatting is in use)? (0-2 pts)
 
 Be specific. Show examples of inconsistencies found. Compare similar files that do things differently.
-Use the Read, Glob, and Grep tools to explore the project. Then respond with your structured analysis.`,
+Use the Read, Glob, Grep, and Bash tools to explore the project. Prefer Read/Glob/Grep for file access; use Bash for counting, git history, or operations that are faster as shell commands. Do not attempt any other tools. Then respond with your structured analysis.`,
   },
   {
     dimension: "security-hygiene",
@@ -133,6 +133,6 @@ Score 0-10 based on:
 - Input validation: Are user inputs validated at boundaries? (0-2 pts)
 
 Be specific. Flag any potential hardcoded secrets (but don't output the actual values). Check .gitignore for .env entries.
-Use the Read, Glob, and Grep tools to explore the project. Then respond with your structured analysis.`,
+Use the Read, Glob, Grep, and Bash tools to explore the project. Prefer Read/Glob/Grep for file access; use Bash for counting, git history, or operations that are faster as shell commands. Do not attempt any other tools. Then respond with your structured analysis.`,
   },
 ];

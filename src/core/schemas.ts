@@ -115,6 +115,9 @@ export const WorkerMeta = z.object({
   durationMs: z.number(),
   numTurns: z.number(),
   costUsd: z.number(),
+  inputTokens: z.number(),
+  outputTokens: z.number(),
+  cacheReadTokens: z.number(),
 });
 export type WorkerMeta = z.infer<typeof WorkerMeta>;
 

@@ -8,7 +8,7 @@ import ora from "ora";
 import { ALL_DIMENSIONS, DIMENSION_LABELS } from "../core/config.js";
 import { analyzeProject } from "../core/orchestrator.js";
 import type { Dimension } from "../core/schemas.js";
-import { renderReport } from "./render.js";
+import { renderReport, renderReportMarkdown } from "./render.js";
 
 const program = new Command();
 
@@ -79,6 +79,7 @@ program
     const spinner = ora({ text: "Discovering project structure...", color: "cyan" }).start();
     const workerStatus = new Map<string, string>();
     const workerActivity = new Map<string, string>();
+    const workerTokens = new Map<string, { input: number; output: number; cache: number; cost: number }>();
 
     const FRAMES = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"];
     const frameRef = { value: 0 };
@@ -113,6 +114,14 @@ program
           onWorkerComplete(dimension, output) {
             workerStatus.set(dimension, `done (${output.score}/10)`);
             workerActivity.delete(dimension);
+            if (output.meta) {
+              workerTokens.set(dimension, {
+                input: output.meta.inputTokens,
+                output: output.meta.outputTokens,
+                cache: output.meta.cacheReadTokens,
+                cost: output.meta.costUsd,
+              });
+            }
           },
           onWorkerError(dimension, error) {
             workerStatus.set(dimension, `failed: ${error.message}`);
@@ -134,6 +143,7 @@ program
         console.log(JSON.stringify(report, null, 2));
       } else {
         console.log(renderReport(report));
+        console.log(renderTokenTable(activeDimensions, workerTokens));
       }
 
       // Save JSON report if requested
@@ -142,6 +152,18 @@ program
         await fs.writeFile(outputPath, JSON.stringify(report, null, 2));
         console.log(chalk.dim(`Report saved to ${outputPath}`));
       }
+
+      // Always save markdown report
+      const workerMeta = new Map(
+        [...workerTokens.entries()].map(([dim, t]) => [
+          dim,
+          { durationMs: 0, numTurns: 0, costUsd: t.cost, inputTokens: t.input, outputTokens: t.output, cacheReadTokens: t.cache },
+        ])
+      );
+      const ts = new Date().toISOString().replace(/:/g, "-").replace(/\..+/, "");
+      const mdPath = path.resolve(`beacon-report-${ts}.md`);
+      await fs.writeFile(mdPath, renderReportMarkdown(report, workerMeta));
+      console.log(chalk.dim(`Markdown report saved to ${mdPath}`));
 
       // Exit with non-zero if score is very low (useful for CI)
       if (report.overallScore < 30) {
@@ -173,10 +195,14 @@ function renderMultiLine(
     process.stdout.write(`\x1B[${lastLineCount.value}A`);
   }
 
+  const cols = process.stdout.columns ?? 100;
+  // Layout: "  X " (4) + label (30) + " " + act
+  const actMaxWidth = Math.max(10, cols - 4 - 31);
+
   const lines: string[] = [];
   for (const dim of activeDimensions) {
     const s = status.get(dim);
-    const act = activity.get(dim) ?? "—";
+    const act = (activity.get(dim) ?? "—").slice(0, actMaxWidth);
     const label = DIMENSION_LABELS[dim].padEnd(30);
 
     if (!s) {
@@ -200,6 +226,50 @@ function renderMultiLine(
   frameRef.value++;
 }
 
+function renderTokenTable(
+  dimensions: Dimension[],
+  tokens: Map<string, { input: number; output: number; cache: number; cost: number }>
+): string {
+  const fmt = (n: number) => n.toLocaleString("en-US");
+  const COL = { label: 30, input: 10, output: 10, cache: 13 };
+  const sepLen = 2 + COL.label + COL.input + COL.output + COL.cache;
+  const sep = chalk.dim("─".repeat(sepLen));
+  const header =
+    chalk.dim("  " + "Dimension".padEnd(COL.label) +
+    "Input".padStart(COL.input) +
+    "Output".padStart(COL.output) +
+    "Cache Read".padStart(COL.cache));
+
+  const rows = dimensions.map((dim) => {
+    const t = tokens.get(dim);
+    if (!t) return chalk.dim("  " + DIMENSION_LABELS[dim].padEnd(COL.label) + "—".padStart(COL.input) + "—".padStart(COL.output) + "—".padStart(COL.cache));
+    return (
+      "  " + chalk.dim(DIMENSION_LABELS[dim].padEnd(COL.label)) +
+      chalk.dim(fmt(t.input).padStart(COL.input)) +
+      chalk.dim(fmt(t.output).padStart(COL.output)) +
+      chalk.dim(fmt(t.cache).padStart(COL.cache))
+    );
+  });
+
+  const totals = [...tokens.values()].reduce(
+    (acc, t) => ({ input: acc.input + t.input, output: acc.output + t.output, cache: acc.cache + t.cache, cost: acc.cost + t.cost }),
+    { input: 0, output: 0, cache: 0, cost: 0 }
+  );
+  const totalRow =
+    "  " + chalk.bold("Total".padEnd(COL.label)) +
+    chalk.bold(fmt(totals.input).padStart(COL.input)) +
+    chalk.bold(fmt(totals.output).padStart(COL.output)) +
+    chalk.bold(fmt(totals.cache).padStart(COL.cache));
+  const costRow = chalk.dim(`  Total cost: $${totals.cost.toFixed(4)}`);
+
+  return [
+    chalk.bold("  Token Usage"),
+    sep, header, sep,
+    ...rows,
+    sep, totalRow, costRow, "",
+  ].join("\n");
+}
+
 function formatToolCall(tool: string, input: unknown): string {
   if (tool === "Glob" && input && typeof input === "object" && "pattern" in input) {
     return `Glob(${(input as { pattern: string }).pattern})`;
@@ -210,6 +280,10 @@ function formatToolCall(tool: string, input: unknown): string {
   if (tool === "Read" && input && typeof input === "object" && "file_path" in input) {
     const p = (input as { file_path: string }).file_path;
     return `Read(${p.split("/").slice(-2).join("/")})`;
+  }
+  if (tool === "Bash" && input && typeof input === "object" && "command" in input) {
+    const cmd = (input as { command: string }).command.trim();
+    return `$ ${cmd.slice(0, 50)}`;
   }
   return tool;
 }
