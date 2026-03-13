@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Shine a light on your codebase's AI readiness. Lighthouse for AI coding agents.",
   "type": "module",
+  "packageManager": "pnpm@9.9.0",
   "bin": {
     "beacon": "./dist/cli/index.js"
   },
