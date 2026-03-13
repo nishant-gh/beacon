@@ -1,4 +1,4 @@
-import { Dimension } from "./schemas.js";
+import type { Dimension } from "./schemas.js";
 
 /** Dimensions to analyze — ordering matters for display */
 export const ALL_DIMENSIONS: Dimension[] = [

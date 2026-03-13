@@ -1,5 +1,10 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { WORKER_OUTPUT_JSON_SCHEMA, WorkerOutput, type Dimension, type WorkerInput } from "../core/schemas.js";
+import {
+  WORKER_OUTPUT_JSON_SCHEMA,
+  WorkerOutput,
+  type Dimension,
+  type WorkerInput,
+} from "../core/schemas.js";
 
 export interface WorkerCallbacks {
   onToolCall?: (tool: string, input: unknown) => void;
@@ -33,7 +38,10 @@ export class BaseWorker {
         systemPrompt: this.config.systemPrompt,
         allowedTools: ["Read", "Glob", "Grep", "Bash"],
         permissionMode: "bypassPermissions",
-        outputFormat: { type: "json_schema", schema: WORKER_OUTPUT_JSON_SCHEMA as Record<string, unknown> },
+        outputFormat: {
+          type: "json_schema",
+          schema: WORKER_OUTPUT_JSON_SCHEMA as Record<string, unknown>,
+        },
         sandbox: {
           enabled: true,
           autoAllowBashIfSandboxed: true,

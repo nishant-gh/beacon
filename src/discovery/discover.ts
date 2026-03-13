@@ -1,20 +1,15 @@
 import fg from "fast-glob";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 import { FILE_PATTERNS, IGNORE_DIRS } from "../core/config.js";
-import {
-  type ClassifiedFile,
-  type FileClassification,
-  type ProjectManifest,
-} from "../core/schemas.js";
+import type { ClassifiedFile, FileClassification, ProjectManifest } from "../core/schemas.js";
 
 /**
  * Discovery phase: scans the project root and produces a ProjectManifest.
  * This is fast, deterministic, and does not use an LLM.
  */
-export async function discoverProject(
-  rootDir: string
-): Promise<ProjectManifest> {
+export async function discoverProject(rootDir: string): Promise<ProjectManifest> {
   const absoluteRoot = path.resolve(rootDir);
 
   // Find all files, excluding ignored directories
@@ -31,9 +26,7 @@ export async function discoverProject(
     allFiles.map(async (entry) => {
       const filePath = typeof entry === "string" ? entry : entry.path;
       const stats =
-        typeof entry === "string"
-          ? await fs.stat(path.join(absoluteRoot, filePath))
-          : entry.stats!;
+        typeof entry === "string" ? await fs.stat(path.join(absoluteRoot, filePath)) : entry.stats!;
 
       return {
         path: filePath,
@@ -52,19 +45,12 @@ export async function discoverProject(
   // Compute stats
   const stats = {
     totalFiles: classifiedFiles.length,
-    sourceFiles: classifiedFiles.filter((f) => f.classification === "source")
-      .length,
-    testFiles: classifiedFiles.filter((f) => f.classification === "test")
-      .length,
-    docFiles: classifiedFiles.filter(
-      (f) => f.classification === "documentation"
-    ).length,
-    configFiles: classifiedFiles.filter((f) => f.classification === "config")
-      .length,
+    sourceFiles: classifiedFiles.filter((f) => f.classification === "source").length,
+    testFiles: classifiedFiles.filter((f) => f.classification === "test").length,
+    docFiles: classifiedFiles.filter((f) => f.classification === "documentation").length,
+    configFiles: classifiedFiles.filter((f) => f.classification === "config").length,
     ciFiles: classifiedFiles.filter((f) => f.classification === "ci").length,
-    agentRulesFiles: classifiedFiles.filter(
-      (f) => f.classification === "agent-rules"
-    ).length,
+    agentRulesFiles: classifiedFiles.filter((f) => f.classification === "agent-rules").length,
   };
 
   return {
@@ -105,9 +91,7 @@ function classifyFile(filePath: string): FileClassification {
   }
 
   // Dependency manifests (before config, since package.json is both)
-  if (
-    FILE_PATTERNS.dependencyManifest.some((p) => matchPattern(filePath, p))
-  ) {
+  if (FILE_PATTERNS.dependencyManifest.some((p) => matchPattern(filePath, p))) {
     return "dependency-manifest";
   }
 
@@ -122,11 +106,7 @@ function classifyFile(filePath: string): FileClassification {
   }
 
   // Assets
-  if (
-    /\.(png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot|mp[34]|webm|webp)$/.test(
-      basename
-    )
-  ) {
+  if (/\.(png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot|mp[34]|webm|webp)$/.test(basename)) {
     return "asset";
   }
 
@@ -207,23 +187,21 @@ function detectLanguages(files: ClassifiedFile[]): string[] {
   return Array.from(languages);
 }
 
-async function detectFrameworks(
-  rootDir: string,
-  files: ClassifiedFile[]
-): Promise<string[]> {
+async function detectFrameworks(rootDir: string, files: ClassifiedFile[]): Promise<string[]> {
   const frameworks: string[] = [];
   const fileNames = new Set(files.map((f) => f.path));
 
   // Check package.json for JS/TS frameworks
-  if (
-    fileNames.has("package.json")
-  ) {
+  if (fileNames.has("package.json")) {
     try {
-      const pkgContent = await fs.readFile(
-        path.join(rootDir, "package.json"),
-        "utf-8"
-      );
-      const pkg = JSON.parse(pkgContent);
+      const pkgContent = await fs.readFile(path.join(rootDir, "package.json"), "utf-8");
+      const pkgSchema = z.object({
+        dependencies: z.record(z.string()).optional(),
+        devDependencies: z.record(z.string()).optional(),
+      });
+      const parsed = pkgSchema.safeParse(JSON.parse(pkgContent));
+      if (!parsed.success) return frameworks;
+      const pkg = parsed.data;
       const allDeps = {
         ...pkg.dependencies,
         ...pkg.devDependencies,

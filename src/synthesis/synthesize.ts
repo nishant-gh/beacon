@@ -37,12 +37,7 @@ export function synthesizeReport(
   const topSuggestions = rankSuggestions(workerOutputs);
 
   // Generate executive summary
-  const executiveSummary = generateExecutiveSummary(
-    overallScore,
-    grade,
-    dimensions,
-    manifest
-  );
+  const executiveSummary = generateExecutiveSummary(overallScore, grade, dimensions, manifest);
 
   const totalCostUsd = workerOutputs.reduce((sum, o) => sum + (o.meta?.costUsd ?? 0), 0);
 
@@ -137,8 +132,7 @@ function generateExecutiveSummary(
     summary +=
       " With targeted improvements in the weakest dimensions, this project could see meaningful gains in AI agent effectiveness.";
   } else {
-    summary +=
-      " This project is well-positioned for effective AI agent collaboration.";
+    summary += " This project is well-positioned for effective AI agent collaboration.";
   }
 
   return summary;

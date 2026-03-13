@@ -5,9 +5,16 @@ import { Command } from "commander";
 import fs from "node:fs/promises";
 import path from "node:path";
 import ora from "ora";
+import { z } from "zod";
 import { ALL_DIMENSIONS, DIMENSION_LABELS } from "../core/config.js";
 import { analyzeProject } from "../core/orchestrator.js";
-import type { Dimension } from "../core/schemas.js";
+import { Dimension } from "../core/schemas.js";
+
+interface CliOptions {
+  dimensions?: string;
+  output?: string;
+  json?: boolean;
+}
 import { renderReport, renderReportMarkdown } from "./render.js";
 
 const program = new Command();
@@ -19,19 +26,10 @@ program
   )
   .version("0.1.0")
   .argument("[path]", "Path to the project to analyze", ".")
-  .option(
-    "-d, --dimensions <dims>",
-    "Comma-separated list of dimensions to analyze"
-  )
-  .option(
-    "-o, --output <file>",
-    "Save JSON report to file"
-  )
-  .option(
-    "--json",
-    "Output raw JSON instead of formatted report"
-  )
-  .action(async (projectPath: string, options) => {
+  .option("-d, --dimensions <dims>", "Comma-separated list of dimensions to analyze")
+  .option("-o, --output <file>", "Save JSON report to file")
+  .option("--json", "Output raw JSON instead of formatted report")
+  .action(async (projectPath: string, options: CliOptions) => {
     if (!process.env.ANTHROPIC_API_KEY && !process.env.CLAUDE_CODE_OAUTH_TOKEN) {
       console.error(
         chalk.red(
@@ -44,19 +42,15 @@ program
     // Parse dimensions if specified
     let dimensions: Dimension[] | undefined;
     if (options.dimensions) {
-      dimensions = options.dimensions.split(",").map((d: string) => d.trim());
-      const invalid = dimensions!.filter(
-        (d) => !ALL_DIMENSIONS.includes(d as Dimension)
-      );
-      if (invalid.length > 0) {
-        console.error(
-          chalk.red(`\nInvalid dimensions: ${invalid.join(", ")}`)
-        );
-        console.error(
-          chalk.dim(`Valid dimensions: ${ALL_DIMENSIONS.join(", ")}\n`)
-        );
+      const raw = options.dimensions.split(",").map((d: string) => d.trim());
+      const result = z.array(Dimension).safeParse(raw);
+      if (!result.success) {
+        const invalid = raw.filter((d: string) => !ALL_DIMENSIONS.includes(d as Dimension));
+        console.error(chalk.red(`\nInvalid dimensions: ${invalid.join(", ")}`));
+        console.error(chalk.dim(`Valid dimensions: ${ALL_DIMENSIONS.join(", ")}\n`));
         process.exit(1);
       }
+      dimensions = result.data;
     }
 
     // Resolve project path
@@ -69,9 +63,7 @@ program
     }
 
     console.log("");
-    console.log(
-      chalk.bold("🔦 Beacon")
-    );
+    console.log(chalk.bold("🔦 Beacon"));
     console.log(chalk.dim(`   Analyzing: ${resolvedPath}`));
     console.log("");
 
@@ -79,9 +71,12 @@ program
     const spinner = ora({ text: "Discovering project structure...", color: "cyan" }).start();
     const workerStatus = new Map<string, string>();
     const workerActivity = new Map<string, string>();
-    const workerTokens = new Map<string, { input: number; output: number; cache: number; cost: number }>();
+    const workerTokens = new Map<
+      string,
+      { input: number; output: number; cache: number; cost: number }
+    >();
 
-    const FRAMES = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"];
+    const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
     const frameRef = { value: 0 };
     const lastLineCount = { value: 0 };
     let renderInterval: NodeJS.Timeout | undefined;
@@ -90,7 +85,7 @@ program
     try {
       const report = await analyzeProject({
         projectPath: resolvedPath,
-        dimensions: dimensions as Dimension[],
+        dimensions,
         callbacks: {
           onDiscoveryStart() {
             spinner.text = "Discovering project structure...";
@@ -99,10 +94,17 @@ program
             spinner.succeed(
               `Discovered ${manifest.stats.totalFiles} files (${manifest.languages.join(", ") || "unknown language"})`
             );
-            activeDimensions = (dimensions ?? ALL_DIMENSIONS) as Dimension[];
+            activeDimensions = dimensions ?? ALL_DIMENSIONS;
             lastLineCount.value = 0;
             renderInterval = setInterval(() => {
-              renderMultiLine(activeDimensions, workerStatus, workerActivity, frameRef, lastLineCount, FRAMES);
+              renderMultiLine(
+                activeDimensions,
+                workerStatus,
+                workerActivity,
+                frameRef,
+                lastLineCount,
+                FRAMES
+              );
             }, 150);
           },
           onWorkerStart(dimension) {
@@ -129,7 +131,14 @@ program
           },
           onSynthesisStart() {
             clearInterval(renderInterval);
-            renderMultiLine(activeDimensions, workerStatus, workerActivity, frameRef, lastLineCount, FRAMES);
+            renderMultiLine(
+              activeDimensions,
+              workerStatus,
+              workerActivity,
+              frameRef,
+              lastLineCount,
+              FRAMES
+            );
             spinner.start("Synthesizing report...");
           },
           onSynthesisComplete() {
@@ -157,7 +166,14 @@ program
       const workerMeta = new Map(
         [...workerTokens.entries()].map(([dim, t]) => [
           dim,
-          { durationMs: 0, numTurns: 0, costUsd: t.cost, inputTokens: t.input, outputTokens: t.output, cacheReadTokens: t.cache },
+          {
+            durationMs: 0,
+            numTurns: 0,
+            costUsd: t.cost,
+            inputTokens: t.input,
+            outputTokens: t.output,
+            cacheReadTokens: t.cache,
+          },
         ])
       );
       const ts = new Date().toISOString().replace(/:/g, "-").replace(/\..+/, "");
@@ -172,11 +188,7 @@ program
     } catch (error) {
       clearInterval(renderInterval);
       spinner.fail("Analysis failed");
-      console.error(
-        chalk.red(
-          `\n${error instanceof Error ? error.message : String(error)}\n`
-        )
-      );
+      console.error(chalk.red(`\n${error instanceof Error ? error.message : String(error)}\n`));
       process.exit(1);
     }
   });
@@ -217,11 +229,11 @@ function renderMultiLine(
     }
   }
 
-  const completed = [...status.values()].filter(s => s !== "running").length;
+  const completed = [...status.values()].filter((s) => s !== "running").length;
   lines.push("");
   lines.push(chalk.dim(`  Analyzing: ${completed}/${activeDimensions.length} complete`));
 
-  process.stdout.write(lines.map(l => `\x1B[2K${l}`).join("\n") + "\n");
+  process.stdout.write(lines.map((l) => `\x1B[2K${l}`).join("\n") + "\n");
   lastLineCount.value = lines.length;
   frameRef.value++;
 }
@@ -234,17 +246,27 @@ function renderTokenTable(
   const COL = { label: 30, input: 10, output: 10, cache: 13 };
   const sepLen = 2 + COL.label + COL.input + COL.output + COL.cache;
   const sep = chalk.dim("─".repeat(sepLen));
-  const header =
-    chalk.dim("  " + "Dimension".padEnd(COL.label) +
-    "Input".padStart(COL.input) +
-    "Output".padStart(COL.output) +
-    "Cache Read".padStart(COL.cache));
+  const header = chalk.dim(
+    "  " +
+      "Dimension".padEnd(COL.label) +
+      "Input".padStart(COL.input) +
+      "Output".padStart(COL.output) +
+      "Cache Read".padStart(COL.cache)
+  );
 
   const rows = dimensions.map((dim) => {
     const t = tokens.get(dim);
-    if (!t) return chalk.dim("  " + DIMENSION_LABELS[dim].padEnd(COL.label) + "—".padStart(COL.input) + "—".padStart(COL.output) + "—".padStart(COL.cache));
+    if (!t)
+      return chalk.dim(
+        "  " +
+          DIMENSION_LABELS[dim].padEnd(COL.label) +
+          "—".padStart(COL.input) +
+          "—".padStart(COL.output) +
+          "—".padStart(COL.cache)
+      );
     return (
-      "  " + chalk.dim(DIMENSION_LABELS[dim].padEnd(COL.label)) +
+      "  " +
+      chalk.dim(DIMENSION_LABELS[dim].padEnd(COL.label)) +
       chalk.dim(fmt(t.input).padStart(COL.input)) +
       chalk.dim(fmt(t.output).padStart(COL.output)) +
       chalk.dim(fmt(t.cache).padStart(COL.cache))
@@ -252,22 +274,25 @@ function renderTokenTable(
   });
 
   const totals = [...tokens.values()].reduce(
-    (acc, t) => ({ input: acc.input + t.input, output: acc.output + t.output, cache: acc.cache + t.cache, cost: acc.cost + t.cost }),
+    (acc, t) => ({
+      input: acc.input + t.input,
+      output: acc.output + t.output,
+      cache: acc.cache + t.cache,
+      cost: acc.cost + t.cost,
+    }),
     { input: 0, output: 0, cache: 0, cost: 0 }
   );
   const totalRow =
-    "  " + chalk.bold("Total".padEnd(COL.label)) +
+    "  " +
+    chalk.bold("Total".padEnd(COL.label)) +
     chalk.bold(fmt(totals.input).padStart(COL.input)) +
     chalk.bold(fmt(totals.output).padStart(COL.output)) +
     chalk.bold(fmt(totals.cache).padStart(COL.cache));
   const costRow = chalk.dim(`  Total cost: $${totals.cost.toFixed(4)}`);
 
-  return [
-    chalk.bold("  Token Usage"),
-    sep, header, sep,
-    ...rows,
-    sep, totalRow, costRow, "",
-  ].join("\n");
+  return [chalk.bold("  Token Usage"), sep, header, sep, ...rows, sep, totalRow, costRow, ""].join(
+    "\n"
+  );
 }
 
 function formatToolCall(tool: string, input: unknown): string {

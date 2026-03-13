@@ -11,9 +11,7 @@ export function renderReport(report: FinalReport): string {
 
   lines.push("");
   lines.push(chalk.bold("═".repeat(width)));
-  lines.push(
-    chalk.bold.white("  🔦 Beacon — AI Readiness Report")
-  );
+  lines.push(chalk.bold.white("  🔦 Beacon — AI Readiness Report"));
   lines.push(chalk.bold("═".repeat(width)));
   lines.push("");
 
@@ -55,9 +53,7 @@ export function renderReport(report: FinalReport): string {
             ? chalk.yellow("MED")
             : chalk.dim("LOW");
       const effortBadge = chalk.dim(`[${suggestion.effort}]`);
-      const dimLabel = chalk.dim(
-        `(${DIMENSION_LABELS[suggestion.dimension]})`
-      );
+      const dimLabel = chalk.dim(`(${DIMENSION_LABELS[suggestion.dimension]})`);
 
       lines.push(
         `  ${chalk.white(`${suggestion.rank}.`)} ${impactBadge} ${effortBadge} ${suggestion.description}`
@@ -104,11 +100,7 @@ export function renderReport(report: FinalReport): string {
       `  Analyzed ${report.meta.totalFilesAnalyzed} files in ${(report.meta.analysisDurationMs / 1000).toFixed(1)}s`
     )
   );
-  lines.push(
-    chalk.dim(
-      `  Languages: ${report.meta.languages.join(", ") || "unknown"}`
-    )
-  );
+  lines.push(chalk.dim(`  Languages: ${report.meta.languages.join(", ") || "unknown"}`));
   lines.push(chalk.bold("═".repeat(width)));
   lines.push("");
 
@@ -198,7 +190,10 @@ export function renderReportMarkdown(
     lines.push("");
     lines.push("| Dimension | Input | Output | Cache Read |");
     lines.push("| --- | ---: | ---: | ---: |");
-    let totalIn = 0, totalOut = 0, totalCache = 0, totalCost = 0;
+    let totalIn = 0,
+      totalOut = 0,
+      totalCache = 0,
+      totalCost = 0;
     for (const dim of report.dimensions) {
       const m = workerMeta.get(dim.dimension);
       if (!m) continue;
@@ -206,9 +201,13 @@ export function renderReportMarkdown(
       totalOut += m.outputTokens;
       totalCache += m.cacheReadTokens;
       totalCost += m.costUsd;
-      lines.push(`| ${DIMENSION_LABELS[dim.dimension]} | ${m.inputTokens.toLocaleString("en-US")} | ${m.outputTokens.toLocaleString("en-US")} | ${m.cacheReadTokens.toLocaleString("en-US")} |`);
+      lines.push(
+        `| ${DIMENSION_LABELS[dim.dimension]} | ${m.inputTokens.toLocaleString("en-US")} | ${m.outputTokens.toLocaleString("en-US")} | ${m.cacheReadTokens.toLocaleString("en-US")} |`
+      );
     }
-    lines.push(`| **Total** | **${totalIn.toLocaleString("en-US")}** | **${totalOut.toLocaleString("en-US")}** | **${totalCache.toLocaleString("en-US")}** |`);
+    lines.push(
+      `| **Total** | **${totalIn.toLocaleString("en-US")}** | **${totalOut.toLocaleString("en-US")}** | **${totalCache.toLocaleString("en-US")}** |`
+    );
     lines.push("");
     lines.push(`**Total cost:** $${totalCost.toFixed(4)}`);
     lines.push("");
@@ -216,7 +215,9 @@ export function renderReportMarkdown(
 
   lines.push("---");
   lines.push("");
-  lines.push(`*Analyzed ${report.meta.totalFilesAnalyzed} files · ${report.meta.languages.join(", ") || "unknown"} · ${(report.meta.analysisDurationMs / 1000).toFixed(1)}s · ${date}*`);
+  lines.push(
+    `*Analyzed ${report.meta.totalFilesAnalyzed} files · ${report.meta.languages.join(", ") || "unknown"} · ${(report.meta.analysisDurationMs / 1000).toFixed(1)}s · ${date}*`
+  );
 
   return lines.join("\n");
 }
