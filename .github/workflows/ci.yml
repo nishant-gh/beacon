@@ -13,7 +13,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: pnpm install --frozen-lockfile
